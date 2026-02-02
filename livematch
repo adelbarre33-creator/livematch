@@ -1,0 +1,92 @@
+import React, { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
+
+export default function LiveVideoApp() {
+  const [peerId, setPeerId] = useState("");
+  const [remoteId, setRemoteId] = useState("");
+  const [peer, setPeer] = useState(null);
+  const [stream, setStream] = useState(null);
+  const myVideo = useRef();
+  const remoteVideo = useRef();
+
+  useEffect(() => {
+    const newPeer = new Peer();
+
+    newPeer.on("open", (id) => {
+      setPeerId(id);
+    });
+
+    newPeer.on("call", (call) => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then((mediaStream) => {
+          setStream(mediaStream);
+          myVideo.current.srcObject = mediaStream;
+          call.answer(mediaStream);
+
+          call.on("stream", (remoteStream) => {
+            remoteVideo.current.srcObject = remoteStream;
+          });
+        });
+    });
+
+    setPeer(newPeer);
+  }, []);
+
+  const startStream = async () => {
+    const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    setStream(mediaStream);
+    myVideo.current.srcObject = mediaStream;
+  };
+
+  const callPeer = () => {
+    const call = peer.call(remoteId, stream);
+    call.on("stream", (remoteStream) => {
+      remoteVideo.current.srcObject = remoteStream;
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <motion.h1
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-3xl font-bold text-center mb-6"
+      >
+        🔴 Live Video Simple
+      </motion.h1>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card className="rounded-2xl shadow-lg p-4">
+          <CardContent>
+            <h2 className="text-xl font-semibold mb-2">Votre vidéo</h2>
+            <video ref={myVideo} autoPlay muted className="w-full rounded-xl" />
+            <div className="mt-4 flex gap-2">
+              <Button onClick={startStream}>Démarrer la caméra</Button>
+            </div>
+            <p className="mt-3 text-sm">Votre ID : <strong>{peerId}</strong></p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-lg p-4">
+          <CardContent>
+            <h2 className="text-xl font-semibold mb-2">Regarder un live</h2>
+            <video ref={remoteVideo} autoPlay className="w-full rounded-xl" />
+            <div className="mt-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="ID du streamer"
+                value={remoteId}
+                onChange={(e) => setRemoteId(e.target.value)}
+                className="border p-2 rounded-xl w-full"
+              />
+              <Button onClick={callPeer}>Rejoindre</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
