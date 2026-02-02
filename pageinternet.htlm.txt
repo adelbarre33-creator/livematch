@@ -1,0 +1,131 @@
+import React, { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+
+export default function LiveVideoApp() {
+  const [peerId, setPeerId] = useState("");
+  const [remoteId, setRemoteId] = useState("");
+  const [peer, setPeer] = useState(null);
+  const [stream, setStream] = useState(null);
+  const myVideo = useRef(null);
+  const remoteVideo = useRef(null);
+
+  useEffect(() => {
+    const newPeer = new Peer();
+
+    newPeer.on("open", (id) => {
+      setPeerId(id);
+    });
+
+    newPeer.on("call", async (call) => {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      setStream(mediaStream);
+      if (myVideo.current) {
+        myVideo.current.srcObject = mediaStream;
+      }
+
+      call.answer(mediaStream);
+
+      call.on("stream", (remoteStream) => {
+        if (remoteVideo.current) {
+          remoteVideo.current.srcObject = remoteStream;
+        }
+      });
+    });
+
+    setPeer(newPeer);
+
+    return () => {
+      newPeer.destroy();
+    };
+  }, []);
+
+  const startStream = async () => {
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+
+    setStream(mediaStream);
+
+    if (myVideo.current) {
+      myVideo.current.srcObject = mediaStream;
+    }
+  };
+
+  const callPeer = () => {
+    if (!peer || !stream) {
+      alert("Démarre d'abord ta caméra !");
+      return;
+    }
+
+    const call = peer.call(remoteId, stream);
+
+    call.on("stream", (remoteStream) => {
+      if (remoteVideo.current) {
+        remoteVideo.current.srcObject = remoteStream;
+      }
+    });
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", padding: 20, fontFamily: "Arial" }}>
+      <h1 style={{ textAlign: "center" }}>🔴 Live Video Simple</h1>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+          marginTop: 30,
+        }}
+      >
+        <div style={{ border: "1px solid #ddd", padding: 15, borderRadius: 10 }}>
+          <h2>Votre vidéo</h2>
+          <video
+            ref={myVideo}
+            autoPlay
+            muted
+            playsInline
+            style={{ width: "100%", borderRadius: 10 }}
+          />
+          <button
+            onClick={startStream}
+            style={{ marginTop: 10, padding: 10, width: "100%" }}
+          >
+            Démarrer la caméra
+          </button>
+          <p style={{ marginTop: 10 }}>
+            Votre ID : <strong>{peerId}</strong>
+          </p>
+        </div>
+
+        <div style={{ border: "1px solid #ddd", padding: 15, borderRadius: 10 }}>
+          <h2>Regarder un live</h2>
+          <video
+            ref={remoteVideo}
+            autoPlay
+            playsInline
+            style={{ width: "100%", borderRadius: 10 }}
+          />
+          <input
+            type="text"
+            placeholder="ID du streamer"
+            value={remoteId}
+            onChange={(e) => setRemoteId(e.target.value)}
+            style={{ marginTop: 10, padding: 10, width: "100%" }}
+          />
+          <button
+            onClick={callPeer}
+            style={{ marginTop: 10, padding: 10, width: "100%" }}
+          >
+            Rejoindre
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
